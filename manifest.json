@@ -1,0 +1,9 @@
+{
+	"id": "workholic",
+	"name": "Workholic",
+	"version": "0.1.0",
+	"minAppVersion": "1.13.0",
+	"description": "Show workflow status from frontmatter as colored indicators in the file explorer, and sort files by status.",
+	"author": "andromediano",
+	"isDesktopOnly": false
+}

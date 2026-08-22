@@ -1,0 +1,67 @@
+/*
+ * Status palette. Built on Obsidian's own color variables so the indicators
+ * follow the active theme and adapt to light and dark mode automatically.
+ * Override any of these in a CSS snippet to recolor a status.
+ */
+.theme-light,
+.theme-dark {
+	--workholic-color-backlog: var(--text-faint);
+	--workholic-color-ready: var(--color-blue);
+	--workholic-color-in-progress: var(--color-yellow);
+	--workholic-color-in-review: var(--color-purple);
+	--workholic-color-done: var(--color-green);
+
+	--workholic-dot-size: 0.5em;
+	--workholic-dot-gap: 0.45em;
+}
+
+/* Each status resolves to a single color the indicators below read from. */
+.nav-file-title[data-workholic-status='BACKLOG'] {
+	--workholic-status-color: var(--workholic-color-backlog);
+}
+
+.nav-file-title[data-workholic-status='READY'] {
+	--workholic-status-color: var(--workholic-color-ready);
+}
+
+.nav-file-title[data-workholic-status='IN_PROGRESS'] {
+	--workholic-status-color: var(--workholic-color-in-progress);
+}
+
+.nav-file-title[data-workholic-status='IN_REVIEW'] {
+	--workholic-status-color: var(--workholic-color-in-review);
+}
+
+.nav-file-title[data-workholic-status='DONE'] {
+	--workholic-status-color: var(--workholic-color-done);
+}
+
+/*
+ * Only rows carrying a status get a pseudo-element, so files without one keep
+ * their normal width and alignment.
+ */
+[data-workholic-indicator='dot']
+	.nav-file-title[data-workholic-status]
+	.nav-file-title-content::before,
+[data-workholic-indicator='both']
+	.nav-file-title[data-workholic-status]
+	.nav-file-title-content::before {
+	content: '';
+	display: inline-block;
+	flex: 0 0 auto;
+	width: var(--workholic-dot-size);
+	height: var(--workholic-dot-size);
+	margin-right: var(--workholic-dot-gap);
+	border-radius: 50%;
+	background-color: var(--workholic-status-color);
+	vertical-align: middle;
+}
+
+[data-workholic-indicator='text']
+	.nav-file-title[data-workholic-status]
+	.nav-file-title-content,
+[data-workholic-indicator='both']
+	.nav-file-title[data-workholic-status]
+	.nav-file-title-content {
+	color: var(--workholic-status-color);
+}

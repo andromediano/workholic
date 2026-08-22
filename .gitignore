@@ -1,0 +1,16 @@
+# Intellij
+*.iml
+.idea
+
+# npm
+node_modules
+
+# Build
+main.js
+*.js.map
+
+# Obsidian
+data.json
+
+# Exclude macOS Finder (System Explorer) View States
+.DS_Store
