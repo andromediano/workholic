@@ -10,13 +10,15 @@ export interface WorkholicSettings {
 	property: string;
 	showIndicators: boolean;
 	indicatorStyle: IndicatorStyle;
+	dimCompleted: boolean;
 	sortByStatus: boolean;
 }
 
 export const DEFAULT_SETTINGS: WorkholicSettings = {
 	property: 'status',
 	showIndicators: true,
-	indicatorStyle: 'dot',
+	indicatorStyle: 'icon',
+	dimCompleted: true,
 	sortByStatus: true,
 };
 
@@ -57,11 +59,17 @@ export class WorkholicSettingTab extends PluginSettingTab {
 					key: 'indicatorStyle',
 					defaultValue: DEFAULT_SETTINGS.indicatorStyle,
 					options: {
-						dot: 'Colored dot',
-						text: 'Colored file name',
-						both: 'Dot and file name',
+						icon: 'Status icon',
+						bar: 'Left accent bar',
+						badge: 'Text badge',
+						'bar-icon': 'Accent bar and icon',
 					},
 				},
+			},
+			{
+				name: 'Dim completed files',
+				desc: 'Fade files marked DONE so unfinished work stands out.',
+				control: { type: 'toggle', key: 'dimCompleted' },
 			},
 			{
 				name: 'Sort by status',

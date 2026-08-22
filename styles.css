@@ -11,57 +11,108 @@
 	--workholic-color-in-review: var(--color-purple);
 	--workholic-color-done: var(--color-green);
 
-	--workholic-dot-size: 0.5em;
-	--workholic-dot-gap: 0.45em;
+	--workholic-icon-size: 0.95em;
+	--workholic-icon-gap: 0.4em;
+	--workholic-bar-width: 3px;
+	--workholic-done-opacity: 0.5;
 }
 
-/* Each status resolves to a single color the indicators below read from. */
+/*
+ * Each status resolves to a color, an icon, and a badge label. The icons are
+ * inline SVG masks rather than glyphs: a mask is tinted by `background-color`,
+ * so it follows the theme, and it renders identically on every platform
+ * instead of depending on font coverage.
+ *
+ * The shapes form a progress ring — dashed, empty, half, three-quarter,
+ * check — so status is legible from shape alone, not color alone.
+ */
 .nav-file-title[data-workholic-status='BACKLOG'] {
 	--workholic-status-color: var(--workholic-color-backlog);
+	--workholic-label: 'Backlog';
+	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='2.6 3.2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3C/svg%3E");
 }
 
 .nav-file-title[data-workholic-status='READY'] {
 	--workholic-status-color: var(--workholic-color-ready);
+	--workholic-label: 'Ready';
+	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3C/svg%3E");
 }
 
 .nav-file-title[data-workholic-status='IN_PROGRESS'] {
 	--workholic-status-color: var(--workholic-color-in-progress);
+	--workholic-label: 'WIP';
+	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 4.5A7.5 7.5 0 0 1 12 19.5Z' fill='black' stroke='none'/%3E%3C/svg%3E");
 }
 
 .nav-file-title[data-workholic-status='IN_REVIEW'] {
 	--workholic-status-color: var(--workholic-color-in-review);
+	--workholic-label: 'Review';
+	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 4.5A7.5 7.5 0 1 1 4.5 12L12 12Z' fill='black' stroke='none'/%3E%3C/svg%3E");
 }
 
 .nav-file-title[data-workholic-status='DONE'] {
 	--workholic-status-color: var(--workholic-color-done);
+	--workholic-label: 'Done';
+	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8.2 12.4l2.6 2.6 5-5.4'/%3E%3C/svg%3E");
 }
+
+/* Status icon --------------------------------------------------------- */
 
 /*
- * Only rows carrying a status get a pseudo-element, so files without one keep
- * their normal width and alignment.
+ * `.tree-item-self` is a flex row, so ::before becomes a flex item that sits
+ * ahead of the file name without entering the text flow.
  */
-[data-workholic-indicator='dot']
-	.nav-file-title[data-workholic-status]
-	.nav-file-title-content::before,
-[data-workholic-indicator='both']
-	.nav-file-title[data-workholic-status]
-	.nav-file-title-content::before {
+[data-workholic-indicator='icon'] .nav-file-title[data-workholic-status]::before,
+[data-workholic-indicator='bar-icon']
+	.nav-file-title[data-workholic-status]::before {
 	content: '';
-	display: inline-block;
 	flex: 0 0 auto;
-	width: var(--workholic-dot-size);
-	height: var(--workholic-dot-size);
-	margin-right: var(--workholic-dot-gap);
-	border-radius: 50%;
+	align-self: center;
+	width: var(--workholic-icon-size);
+	height: var(--workholic-icon-size);
+	margin-inline-end: var(--workholic-icon-gap);
 	background-color: var(--workholic-status-color);
-	vertical-align: middle;
+	-webkit-mask-image: var(--workholic-icon);
+	mask-image: var(--workholic-icon);
+	-webkit-mask-size: contain;
+	mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
 }
 
-[data-workholic-indicator='text']
-	.nav-file-title[data-workholic-status]
-	.nav-file-title-content,
-[data-workholic-indicator='both']
-	.nav-file-title[data-workholic-status]
-	.nav-file-title-content {
+/* Left accent bar ----------------------------------------------------- */
+
+/*
+ * An inset shadow rather than a border, so the row keeps its width and the
+ * bar follows the theme's `--nav-item-radius`.
+ */
+[data-workholic-indicator='bar'] .nav-file-title[data-workholic-status],
+[data-workholic-indicator='bar-icon'] .nav-file-title[data-workholic-status] {
+	box-shadow: inset var(--workholic-bar-width) 0 0 0
+		var(--workholic-status-color);
+}
+
+/* Text badge ---------------------------------------------------------- */
+
+[data-workholic-indicator='badge']
+	.nav-file-title[data-workholic-status]::after {
+	content: var(--workholic-label);
+	flex: 0 0 auto;
+	margin-inline-start: auto;
+	padding-inline: 0.4em;
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-hover);
 	color: var(--workholic-status-color);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium);
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+/* Completed files ----------------------------------------------------- */
+
+[data-workholic-dim='true'] .nav-file-title[data-workholic-status='DONE'] {
+	opacity: var(--workholic-done-opacity);
 }

@@ -1,10 +1,11 @@
 import { Component, type App } from 'obsidian';
 import type { Status } from '../status/types';
 
-export type IndicatorStyle = 'dot' | 'text' | 'both';
+export type IndicatorStyle = 'icon' | 'bar' | 'badge' | 'bar-icon';
 
 export const STATUS_ATTR = 'data-workholic-status';
 export const INDICATOR_ATTR = 'data-workholic-indicator';
+export const DIM_ATTR = 'data-workholic-dim';
 
 const FILE_EXPLORER_VIEW_TYPE = 'file-explorer';
 const ROW_SELECTOR = `.nav-file-title[data-path]`;
@@ -23,8 +24,9 @@ const ROW_SELECTOR = `.nav-file-title[data-path]`;
 export class StatusDecorator extends Component {
 	private observer: MutationObserver | null = null;
 	private container: HTMLElement | null = null;
-	private style: IndicatorStyle = 'dot';
+	private style: IndicatorStyle = 'icon';
 	private enabled = true;
+	private dim = true;
 
 	constructor(
 		private readonly app: App,
@@ -45,9 +47,10 @@ export class StatusDecorator extends Component {
 		this.disconnect();
 	}
 
-	configure(enabled: boolean, style: IndicatorStyle): void {
+	configure(enabled: boolean, style: IndicatorStyle, dim: boolean): void {
 		this.enabled = enabled;
 		this.style = style;
+		this.dim = dim;
 		this.applyIndicatorStyle();
 		this.refresh();
 	}
@@ -120,10 +123,14 @@ export class StatusDecorator extends Component {
 	}
 
 	private applyIndicatorStyle(): void {
-		if (!this.container) return;
+		const container = this.container;
+		if (!container) return;
 
-		if (this.enabled) this.container.setAttribute(INDICATOR_ATTR, this.style);
-		else this.container.removeAttribute(INDICATOR_ATTR);
+		if (this.enabled) container.setAttribute(INDICATOR_ATTR, this.style);
+		else container.removeAttribute(INDICATOR_ATTR);
+
+		if (this.dim) container.setAttribute(DIM_ATTR, 'true');
+		else container.removeAttribute(DIM_ATTR);
 	}
 
 	private findContainer(): HTMLElement | null {
@@ -142,6 +149,7 @@ export class StatusDecorator extends Component {
 		this.observer = null;
 
 		this.container?.removeAttribute(INDICATOR_ATTR);
+		this.container?.removeAttribute(DIM_ATTR);
 		this.container = null;
 	}
 }

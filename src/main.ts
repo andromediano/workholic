@@ -8,7 +8,7 @@ import { StatusIndex } from './status/status-index';
 import { StatusDecorator } from './decoration/status-decorator';
 import { ExplorerSorter } from './sorting/explorer-patch';
 
-const INDICATOR_STYLES = new Set(['dot', 'text', 'both']);
+const INDICATOR_STYLES = new Set(['icon', 'bar', 'badge', 'bar-icon']);
 
 export default class WorkholicPlugin extends Plugin {
 	settings!: WorkholicSettings;
@@ -58,6 +58,10 @@ export default class WorkholicPlugin extends Plugin {
 					this.settings.indicatorStyle =
 						value as WorkholicSettings['indicatorStyle'];
 				break;
+			case 'dimCompleted':
+				if (typeof value === 'boolean')
+					this.settings.dimCompleted = value;
+				break;
 			case 'sortByStatus':
 				if (typeof value === 'boolean')
 					this.settings.sortByStatus = value;
@@ -78,6 +82,7 @@ export default class WorkholicPlugin extends Plugin {
 		this.decorator.configure(
 			this.settings.showIndicators,
 			this.settings.indicatorStyle,
+			this.settings.dimCompleted,
 		);
 		this.sorter.refresh();
 	}
@@ -91,5 +96,11 @@ export default class WorkholicPlugin extends Plugin {
 	private async loadSettings(): Promise<void> {
 		const stored = (await this.loadData()) as Partial<WorkholicSettings>;
 		this.settings = { ...DEFAULT_SETTINGS, ...stored };
+
+		// Data written by an earlier version may name a preset that no longer
+		// exists; fall back rather than emitting an unknown attribute.
+		if (!INDICATOR_STYLES.has(this.settings.indicatorStyle)) {
+			this.settings.indicatorStyle = DEFAULT_SETTINGS.indicatorStyle;
+		}
 	}
 }

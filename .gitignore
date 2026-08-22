@@ -14,3 +14,6 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# Playwright MCP scratch output
+.playwright-mcp
