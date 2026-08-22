@@ -12,6 +12,15 @@ export const STATUSES = [
 
 export type Status = (typeof STATUSES)[number];
 
+/** Human-readable names, in sentence case per Obsidian's UI conventions. */
+export const STATUS_LABELS: Record<Status, string> = {
+	BACKLOG: 'Backlog',
+	READY: 'Ready',
+	IN_PROGRESS: 'In progress',
+	IN_REVIEW: 'In review',
+	DONE: 'Done',
+};
+
 /** Rank given to files with no status, or an unrecognized one. Always last. */
 export const NO_STATUS_RANK = STATUSES.length;
 

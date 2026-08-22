@@ -16,6 +16,17 @@ status: IN_PROGRESS
 
 Values are matched loosely, so `in progress`, `In-Progress`, and `IN_PROGRESS` all resolve to the same status. Anything unrecognized is treated as having no status.
 
+## Setting a status
+
+You don't have to remember the values or type them. A status picker is available from two places:
+
+- **Right-click a file** in the file explorer → **Set status**
+- **Command palette** → **Workholic: Set status** (assign a hotkey if you use it often)
+
+Select several files first and the picker applies the status to all of them at once. The picker also offers **Clear status**, which removes the property.
+
+Typing the value by hand still works, of course.
+
 ## Features
 
 **Status indicators.** Files with a status are marked in the file explorer. Four presets are available:
@@ -52,15 +63,15 @@ Override the palette in a CSS snippet:
 ```css
 .theme-light,
 .theme-dark {
-	--workholic-color-backlog: var(--text-faint);
-	--workholic-color-ready: var(--color-blue);
-	--workholic-color-in-progress: var(--color-yellow);
-	--workholic-color-in-review: var(--color-purple);
-	--workholic-color-done: var(--color-green);
-
-	--workholic-icon-size: 0.95em;
-	--workholic-bar-width: 3px;
-	--workholic-done-opacity: 0.5;
+  --workholic-color-backlog: var(--text-faint);
+  --workholic-color-ready: var(--color-blue);
+  --workholic-color-in-progress: var(--color-yellow);
+  --workholic-color-in-review: var(--color-purple);
+  --workholic-color-done: var(--color-green);
+  
+  --workholic-icon-size: 0.95em;
+  --workholic-bar-width: 3px;
+  --workholic-done-opacity: 0.5;
 }
 ```
 
@@ -68,7 +79,7 @@ To swap an icon, override `--workholic-icon` on the matching status:
 
 ```css
 .nav-file-title[data-workholic-status='IN_PROGRESS'] {
-	--workholic-icon: url("data:image/svg+xml,...");
+  --workholic-icon: url("data:image/svg+xml,...");
 }
 ```
 

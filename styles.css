@@ -25,32 +25,35 @@
  *
  * The shapes form a progress ring — dashed, empty, half, three-quarter,
  * check — so status is legible from shape alone, not color alone.
+ *
+ * These are declared on the bare attribute rather than on `.nav-file-title`
+ * so the picker modal can reuse the same icons and colors.
  */
-.nav-file-title[data-workholic-status='BACKLOG'] {
+[data-workholic-status='BACKLOG'] {
 	--workholic-status-color: var(--workholic-color-backlog);
 	--workholic-label: 'Backlog';
 	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-dasharray='2.6 3.2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3C/svg%3E");
 }
 
-.nav-file-title[data-workholic-status='READY'] {
+[data-workholic-status='READY'] {
 	--workholic-status-color: var(--workholic-color-ready);
 	--workholic-label: 'Ready';
 	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3C/svg%3E");
 }
 
-.nav-file-title[data-workholic-status='IN_PROGRESS'] {
+[data-workholic-status='IN_PROGRESS'] {
 	--workholic-status-color: var(--workholic-color-in-progress);
 	--workholic-label: 'WIP';
 	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 4.5A7.5 7.5 0 0 1 12 19.5Z' fill='black' stroke='none'/%3E%3C/svg%3E");
 }
 
-.nav-file-title[data-workholic-status='IN_REVIEW'] {
+[data-workholic-status='IN_REVIEW'] {
 	--workholic-status-color: var(--workholic-color-in-review);
 	--workholic-label: 'Review';
 	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 4.5A7.5 7.5 0 1 1 4.5 12L12 12Z' fill='black' stroke='none'/%3E%3C/svg%3E");
 }
 
-.nav-file-title[data-workholic-status='DONE'] {
+[data-workholic-status='DONE'] {
 	--workholic-status-color: var(--workholic-color-done);
 	--workholic-label: 'Done';
 	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M8.2 12.4l2.6 2.6 5-5.4'/%3E%3C/svg%3E");
@@ -115,4 +118,49 @@
 
 [data-workholic-dim='true'] .nav-file-title[data-workholic-status='DONE'] {
 	opacity: var(--workholic-done-opacity);
+}
+
+/* Status picker ------------------------------------------------------- */
+
+.workholic-status-option {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+}
+
+.workholic-status-option-icon {
+	flex: 0 0 auto;
+	width: 1.05em;
+	height: 1.05em;
+	background-color: var(--workholic-status-color, var(--text-muted));
+	-webkit-mask-image: var(--workholic-icon);
+	mask-image: var(--workholic-icon);
+	-webkit-mask-size: contain;
+	mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
+}
+
+/*
+ * The clear entry gets a cross rather than another ring: a dashed circle here
+ * would read as the BACKLOG icon.
+ */
+.workholic-status-option.mod-clear .workholic-status-option-icon {
+	background-color: var(--text-faint);
+	--workholic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E");
+}
+
+.workholic-status-option-label {
+	flex: 1 1 auto;
+}
+
+.workholic-status-option-current {
+	flex: 0 0 auto;
+	padding-inline: 0.4em;
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
 }

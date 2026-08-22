@@ -1,4 +1,4 @@
-import { Plugin, debounce } from 'obsidian';
+import { Plugin, TFile, debounce } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
 	WorkholicSettingTab,
@@ -7,6 +7,8 @@ import {
 import { StatusIndex } from './status/status-index';
 import { StatusDecorator } from './decoration/status-decorator';
 import { ExplorerSorter } from './sorting/explorer-patch';
+import { StatusPickerModal } from './ui/status-picker';
+import { applyStatus } from './status/write-status';
 
 const INDICATOR_STYLES = new Set(['icon', 'bar', 'badge', 'bar-icon']);
 
@@ -35,6 +37,7 @@ export default class WorkholicPlugin extends Plugin {
 		this.index.onChange(debounce(() => this.apply(), 100, true));
 
 		this.addSettingTab(new WorkholicSettingTab(this.app, this));
+		this.registerStatusPicker();
 
 		// The initial scan touches every Markdown file, so keep it out of
 		// onload and off the app's startup path.
@@ -42,6 +45,69 @@ export default class WorkholicPlugin extends Plugin {
 			this.sorter.setEnabled(this.settings.sortByStatus);
 			this.index.rebuild();
 		});
+	}
+
+	/**
+	 * Obsidian has no enum property type, so the valid statuses are not
+	 * discoverable from the Properties UI. One picker, reachable from the
+	 * command palette and the file context menu, makes them visible without
+	 * anyone having to know the spelling.
+	 */
+	private registerStatusPicker(): void {
+		this.addCommand({
+			id: 'set-status',
+			name: 'Set status',
+			checkCallback: (checking: boolean) => {
+				const file = this.app.workspace.getActiveFile();
+				if (!file || file.extension !== 'md') return false;
+
+				if (!checking) this.openPicker([file]);
+				return true;
+			},
+		});
+
+		this.registerEvent(
+			this.app.workspace.on('file-menu', (menu, file) => {
+				if (!(file instanceof TFile) || file.extension !== 'md') return;
+
+				menu.addItem((item) =>
+					item
+						.setTitle('Set status')
+						.setIcon('circle-dot')
+						.setSection('action')
+						.onClick(() => this.openPicker([file])),
+				);
+			}),
+		);
+
+		this.registerEvent(
+			this.app.workspace.on('files-menu', (menu, files) => {
+				const targets = files.filter(
+					(file): file is TFile =>
+						file instanceof TFile && file.extension === 'md',
+				);
+				if (targets.length === 0) return;
+
+				menu.addItem((item) =>
+					item
+						.setTitle('Set status')
+						.setIcon('circle-dot')
+						.setSection('action')
+						.onClick(() => this.openPicker(targets)),
+				);
+			}),
+		);
+	}
+
+	private openPicker(files: TFile[]): void {
+		const first = files[0];
+		const current =
+			files.length === 1 && first ? this.index.get(first.path) : null;
+		const property = this.propertyName();
+
+		new StatusPickerModal(this.app, files, current, (status) => {
+			void applyStatus(this.app, files, property, status);
+		}).open();
 	}
 
 	async updateSetting(key: string, value: unknown): Promise<void> {
