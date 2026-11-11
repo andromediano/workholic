@@ -133,7 +133,7 @@ function sameLabel(a: Label, b: Label): boolean {
 const keyOf = (properties: LabelProperties): string =>
 	JSON.stringify([properties.title, properties.date, properties.category]);
 
-/** `path -> label` for every Markdown file with a title, date, or category. */
+/** Each Markdown file's title, date, and category, read on demand. */
 export class LabelIndex extends FrontmatterIndex<Label> {
 	constructor(app: App, properties: LabelProperties) {
 		super(app, keyOf(properties), labelFrom(properties), sameLabel);

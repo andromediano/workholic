@@ -6,7 +6,7 @@ function statusFrom(property: string): Extractor<Status> {
 	return (frontmatter) => normalizeStatus(frontmatter?.[property]);
 }
 
-/** `path -> status` for every Markdown file with a recognized status. */
+/** Each Markdown file's recognized status, read on demand. */
 export class StatusIndex extends FrontmatterIndex<Status> {
 	constructor(app: App, property: string) {
 		super(app, property, statusFrom(property));

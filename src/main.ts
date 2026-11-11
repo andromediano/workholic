@@ -75,11 +75,12 @@ export default class WorkholicPlugin extends Plugin {
 		this.addSettingTab(new WorkholicSettingTab(this.app, this));
 		this.registerStatusPicker();
 
-		// The initial scan touches every Markdown file, so keep it out of
-		// onload and off the app's startup path.
+		// The indexes read frontmatter lazily, so there is no scan to run.
+		// Wait for the layout only because the file explorer may not exist
+		// before then.
 		this.app.workspace.onLayoutReady(() => {
-			this.index.rebuild();
-			this.labelIndex.rebuild();
+			this.index.reset();
+			this.labelIndex.reset();
 			this.configureExplorer();
 		});
 	}
