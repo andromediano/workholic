@@ -1,6 +1,6 @@
 # Workholic
 
-Show workflow status from frontmatter as colored indicators in the file explorer, and sort files by status.
+Show status, title, date, and category from frontmatter in the file explorer, and sort files by status, date, and title.
 
 Add a `status` property to a note's frontmatter and Workholic marks it in the file explorer:
 
