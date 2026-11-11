@@ -1,9 +1,25 @@
 import { Component, TFile, type App, type TFolder } from 'obsidian';
 import { around } from 'monkey-around';
 import { rankOf, type Status } from '../status/types';
-import { reorderByRank } from './reorder';
+import { reorderByRank, reorderPinned } from './reorder';
 
 const FILE_EXPLORER_VIEW_TYPE = 'file-explorer';
+
+/** The explorer's name-based sort orders, as stored in `sortOrder`. */
+const NAME_SORT_ORDERS: Record<string, 1 | -1> = {
+	alphabetical: 1,
+	alphabeticalReverse: -1,
+};
+
+/**
+ * Matches the collator Obsidian itself uses for name sorting, so files without
+ * a label land exactly where they would without this plugin.
+ */
+const collator = new Intl.Collator(undefined, {
+	usage: 'sort',
+	sensitivity: 'base',
+	numeric: true,
+});
 
 /** The shape of a file explorer row. Not part of the public API. */
 interface ExplorerItem {
@@ -19,32 +35,54 @@ interface ExplorerItem {
 interface FileExplorerViewInternals {
 	getSortedFolderItems?: (folder: TFolder) => ExplorerItem[];
 	requestSort?: () => void;
+	sortOrder?: unknown;
 }
 
 export type StatusResolver = (path: string) => Status | null;
 
+/** What a file is ordered by when the explorer is sorted by name. */
+export interface NameSortKey {
+	/** Sortable date (`YYYY-MM-DD…`), or null to order by name alone. */
+	date: string | null;
+	/** The name the user sees: the title, or the file name. */
+	name: string;
+}
+
+export type NameSortKeyResolver = (file: TFile) => NameSortKey;
+
+export interface SortOptions {
+	/** Group files by status, ahead of every other key. */
+	byStatus: boolean;
+	/**
+	 * When the explorer is sorted by name, order files by `NameSortKey`
+	 * instead of their file name.
+	 */
+	byLabel: boolean;
+}
+
 /**
- * Reorders file explorer rows so status becomes the primary sort key while the
- * user's own sort order (name, modified time, …) survives as the secondary
- * key.
+ * Reorders file explorer rows on top of the user's own sort order.
  *
- * Two properties make that work:
+ * The wrapper calls the original `getSortedFolderItems` first, so the input is
+ * already in the user's chosen order, and every pass after that is a stable
+ * sort over file rows only. That gives this precedence:
  *
- * - The wrapper calls the original `getSortedFolderItems` first, so the input
- *   is already in the user's chosen order.
- * - `Array.prototype.sort` is stable, so ranking by status alone preserves
- *   that order within each status.
+ * 1. Status (when enabled)
+ * 2. Date, then displayed name (when enabled and the explorer is sorted by
+ *    name), or else the user's own sort order
  *
  * Folders keep their exact positions; only file rows are reordered.
  */
 export class ExplorerSorter extends Component {
 	private uninstall: (() => void) | null = null;
-	private enabled = false;
+	private options: SortOptions = { byStatus: false, byLabel: false };
 	private retryQueued = false;
+	private unavailable = false;
 
 	constructor(
 		private readonly app: App,
-		private readonly resolve: StatusResolver,
+		private readonly resolveStatus: StatusResolver,
+		private readonly resolveNameKey: NameSortKeyResolver,
 	) {
 		super();
 	}
@@ -54,7 +92,7 @@ export class ExplorerSorter extends Component {
 		// when the user rearranges the workspace. Re-check on layout changes.
 		this.registerEvent(
 			this.app.workspace.on('layout-change', () => {
-				if (this.enabled && !this.uninstall) this.install();
+				if (this.wanted() && !this.uninstall) this.install();
 			}),
 		);
 	}
@@ -63,18 +101,31 @@ export class ExplorerSorter extends Component {
 		this.teardown();
 	}
 
-	setEnabled(enabled: boolean): void {
-		if (enabled === this.enabled) return;
-		this.enabled = enabled;
+	configure(options: SortOptions): void {
+		const changed =
+			options.byStatus !== this.options.byStatus ||
+			options.byLabel !== this.options.byLabel;
+		this.options = { ...options };
 
-		if (enabled) this.install();
-		else this.teardown();
+		if (!this.wanted()) {
+			this.teardown();
+			return;
+		}
+
+		if (!this.uninstall) this.install();
+		else if (changed) this.refresh();
 	}
 
 	/** Ask the file explorer to re-run its sort. Safe to call at any time. */
 	refresh(): void {
-		if (!this.enabled) return;
+		if (!this.uninstall) return;
 		this.view()?.requestSort?.();
+	}
+
+	private wanted(): boolean {
+		return (
+			!this.unavailable && (this.options.byStatus || this.options.byLabel)
+		);
 	}
 
 	private view(): FileExplorerViewInternals | null {
@@ -100,14 +151,15 @@ export class ExplorerSorter extends Component {
 
 		if (typeof view.getSortedFolderItems !== 'function') {
 			console.error(
-				'Workholic: this Obsidian build does not expose the file explorer sort hook; status sorting is unavailable.',
+				'Workholic: this Obsidian build does not expose the file explorer sort hook; sorting by status and label is unavailable.',
 			);
-			this.enabled = false;
+			this.unavailable = true;
 			return;
 		}
 
 		const prototype = Object.getPrototypeOf(view) as object;
-		const resolve = this.resolve;
+		const reorder = (items: ExplorerItem[], sortOrder: unknown) =>
+			this.reorder(items, sortOrder);
 
 		this.uninstall = around(
 			prototype as Record<string, unknown>,
@@ -116,15 +168,15 @@ export class ExplorerSorter extends Component {
 					original: (folder: TFolder) => ExplorerItem[],
 				) {
 					return function (
-						this: unknown,
+						this: FileExplorerViewInternals,
 						folder: TFolder,
 					): ExplorerItem[] {
 						const items = original.call(this, folder);
 						try {
-							return reorderByStatus(items, resolve);
+							return reorder(items, this.sortOrder);
 						} catch (error) {
 							console.error(
-								'Workholic: failed to sort by status, falling back to the default order.',
+								'Workholic: failed to sort the file explorer, falling back to the default order.',
 								error,
 							);
 							return items;
@@ -135,6 +187,22 @@ export class ExplorerSorter extends Component {
 		);
 
 		view.requestSort?.();
+	}
+
+	private reorder(items: ExplorerItem[], sortOrder: unknown): ExplorerItem[] {
+		let result = items;
+
+		const direction =
+			typeof sortOrder === 'string' ? NAME_SORT_ORDERS[sortOrder] : undefined;
+		if (this.options.byLabel && direction !== undefined) {
+			result = reorderByNameKey(result, this.resolveNameKey, direction);
+		}
+
+		if (this.options.byStatus) {
+			result = reorderByStatus(result, this.resolveStatus);
+		}
+
+		return result;
 	}
 
 	private teardown(): void {
@@ -155,7 +223,7 @@ export class ExplorerSorter extends Component {
 
 		this.app.workspace.onLayoutReady(() => {
 			this.retryQueued = false;
-			if (this.enabled && !this.uninstall) this.install();
+			if (this.wanted() && !this.uninstall) this.install();
 		});
 	}
 }
@@ -174,4 +242,43 @@ export function reorderByStatus(
 		if (!(file instanceof TFile)) return null;
 		return rankOf(resolve(file.path));
 	});
+}
+
+/**
+ * Compares name sort keys. Dated files come first, ordered by date; files with
+ * no date follow, so they never interleave with the dated ones. Ties, and the
+ * undated files, are ordered by displayed name. `direction` flips the date and
+ * name order but keeps undated files last either way.
+ */
+export function compareNameKeys(
+	a: NameSortKey,
+	b: NameSortKey,
+	direction: 1 | -1,
+): number {
+	if (a.date !== null && b.date !== null && a.date !== b.date) {
+		return direction * (a.date < b.date ? -1 : 1);
+	}
+	if (a.date !== null && b.date === null) return -1;
+	if (a.date === null && b.date !== null) return 1;
+
+	return direction * collator.compare(a.name, b.name);
+}
+
+/**
+ * Rewrites file rows in name-key order, leaving folder rows in place.
+ */
+export function reorderByNameKey(
+	items: ExplorerItem[],
+	resolve: NameSortKeyResolver,
+	direction: 1 | -1,
+): ExplorerItem[] {
+	return reorderPinned(
+		items,
+		(item) => {
+			const file = item?.file;
+			if (!(file instanceof TFile)) return null;
+			return resolve(file);
+		},
+		(a, b) => compareNameKeys(a, b, direction),
+	);
 }

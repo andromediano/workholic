@@ -1,40 +1,76 @@
 import { Plugin, TFile, debounce } from 'obsidian';
 import {
 	DEFAULT_SETTINGS,
+	PROPERTY_SETTINGS,
 	WorkholicSettingTab,
+	type PropertySetting,
 	type WorkholicSettings,
 } from './settings';
 import { StatusIndex } from './status/status-index';
 import { StatusDecorator } from './decoration/status-decorator';
-import { ExplorerSorter } from './sorting/explorer-patch';
+import { ExplorerSorter, type NameSortKey } from './sorting/explorer-patch';
 import { StatusPickerModal } from './ui/status-picker';
 import { applyStatus } from './status/write-status';
+import { LabelIndex, type LabelProperties } from './titles/label-index';
+import { ExplorerLabels } from './titles/explorer-labels';
 
 const INDICATOR_STYLES = new Set(['icon', 'bar', 'badge', 'bar-icon']);
+
+const BOOLEAN_SETTINGS = [
+	'showIndicators',
+	'dimCompleted',
+	'sortByStatus',
+	'showTitles',
+	'showDay',
+	'showCategory',
+	'sortByLabel',
+] as const;
+
+type BooleanSetting = (typeof BOOLEAN_SETTINGS)[number];
+
+const isBooleanSetting = (key: string): key is BooleanSetting =>
+	(BOOLEAN_SETTINGS as readonly string[]).includes(key);
+
+const isPropertySetting = (key: string): key is PropertySetting =>
+	(PROPERTY_SETTINGS as readonly string[]).includes(key);
 
 export default class WorkholicPlugin extends Plugin {
 	settings!: WorkholicSettings;
 
 	private index!: StatusIndex;
+	private labelIndex!: LabelIndex;
 	private decorator!: StatusDecorator;
+	private labels!: ExplorerLabels;
 	private sorter!: ExplorerSorter;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
 		this.index = this.addChild(
-			new StatusIndex(this.app, this.propertyName()),
+			new StatusIndex(this.app, this.propertyName('property')),
+		);
+		this.labelIndex = this.addChild(
+			new LabelIndex(this.app, this.labelProperties()),
 		);
 		this.decorator = this.addChild(
 			new StatusDecorator(this.app, (path) => this.index.get(path)),
 		);
+		this.labels = this.addChild(
+			new ExplorerLabels(this.app, (path) => this.labelIndex.get(path)),
+		);
 		this.sorter = this.addChild(
-			new ExplorerSorter(this.app, (path) => this.index.get(path)),
+			new ExplorerSorter(
+				this.app,
+				(path) => this.index.get(path),
+				(file) => this.nameSortKey(file),
+			),
 		);
 
 		// Coalesce bursts of metadata events (bulk edits, sync) into a single
 		// pass over the file explorer.
-		this.index.onChange(debounce(() => this.apply(), 100, true));
+		const apply = debounce(() => this.apply(), 100, true);
+		this.index.onChange(apply);
+		this.labelIndex.onChange(apply);
 
 		this.addSettingTab(new WorkholicSettingTab(this.app, this));
 		this.registerStatusPicker();
@@ -42,8 +78,9 @@ export default class WorkholicPlugin extends Plugin {
 		// The initial scan touches every Markdown file, so keep it out of
 		// onload and off the app's startup path.
 		this.app.workspace.onLayoutReady(() => {
-			this.sorter.setEnabled(this.settings.sortByStatus);
 			this.index.rebuild();
+			this.labelIndex.rebuild();
+			this.configureExplorer();
 		});
 	}
 
@@ -103,7 +140,7 @@ export default class WorkholicPlugin extends Plugin {
 		const first = files[0];
 		const current =
 			files.length === 1 && first ? this.index.get(first.path) : null;
-		const property = this.propertyName();
+		const property = this.propertyName('property');
 
 		new StatusPickerModal(this.app, files, current, (status) => {
 			void applyStatus(this.app, files, property, status);
@@ -111,37 +148,42 @@ export default class WorkholicPlugin extends Plugin {
 	}
 
 	async updateSetting(key: string, value: unknown): Promise<void> {
-		switch (key) {
-			case 'property':
-				if (typeof value === 'string') this.settings.property = value;
-				break;
-			case 'showIndicators':
-				if (typeof value === 'boolean')
-					this.settings.showIndicators = value;
-				break;
-			case 'indicatorStyle':
-				if (typeof value === 'string' && INDICATOR_STYLES.has(value))
-					this.settings.indicatorStyle =
-						value as WorkholicSettings['indicatorStyle'];
-				break;
-			case 'dimCompleted':
-				if (typeof value === 'boolean')
-					this.settings.dimCompleted = value;
-				break;
-			case 'sortByStatus':
-				if (typeof value === 'boolean')
-					this.settings.sortByStatus = value;
-				break;
-			default:
-				return;
+		if (isBooleanSetting(key)) {
+			if (typeof value !== 'boolean') return;
+			this.settings[key] = value;
+		} else if (isPropertySetting(key)) {
+			if (typeof value !== 'string') return;
+			this.settings[key] = value;
+		} else if (key === 'indicatorStyle') {
+			if (typeof value !== 'string' || !INDICATOR_STYLES.has(value)) return;
+			this.settings.indicatorStyle =
+				value as WorkholicSettings['indicatorStyle'];
+		} else {
+			return;
 		}
 
 		await this.saveData(this.settings);
 
-		this.sorter.setEnabled(this.settings.sortByStatus);
-		// Rebuilds and re-applies on its own if the property actually changed.
-		this.index.setProperty(this.propertyName());
+		// Rebuild and re-apply on their own if a property actually changed.
+		this.index.setProperty(this.propertyName('property'));
+		this.labelIndex.setProperties(this.labelProperties());
+		this.configureExplorer();
 		this.apply();
+	}
+
+	/** Turns the file explorer patches on or off to match the settings. */
+	private configureExplorer(): void {
+		const { showTitles, showDay, showCategory } = this.settings;
+
+		this.labels.configure({
+			title: showTitles,
+			day: showDay,
+			category: showCategory,
+		});
+		this.sorter.configure({
+			byStatus: this.settings.sortByStatus,
+			byLabel: (showTitles || showDay) && this.settings.sortByLabel,
+		});
 	}
 
 	private apply(): void {
@@ -150,13 +192,36 @@ export default class WorkholicPlugin extends Plugin {
 			this.settings.indicatorStyle,
 			this.settings.dimCompleted,
 		);
+		this.labels.refresh();
 		this.sorter.refresh();
 	}
 
+	/**
+	 * Name sorting follows what the row shows: the date only counts while the
+	 * day is displayed, and the title only while titles are displayed.
+	 */
+	private nameSortKey(file: TFile): NameSortKey {
+		const label = this.labelIndex.get(file.path);
+		const { showTitles, showDay } = this.settings;
+
+		return {
+			date: showDay ? (label?.date ?? null) : null,
+			name: (showTitles ? label?.title : null) ?? file.basename,
+		};
+	}
+
+	private labelProperties(): LabelProperties {
+		return {
+			title: this.propertyName('titleProperty'),
+			date: this.propertyName('dateProperty'),
+			category: this.propertyName('categoryProperty'),
+		};
+	}
+
 	/** Stored settings may predate validation, so re-check on read. */
-	private propertyName(): string {
-		const property = this.settings.property.trim();
-		return property.length > 0 ? property : DEFAULT_SETTINGS.property;
+	private propertyName(key: PropertySetting): string {
+		const property = this.settings[key].trim();
+		return property.length > 0 ? property : DEFAULT_SETTINGS[key];
 	}
 
 	private async loadSettings(): Promise<void> {

@@ -12,6 +12,13 @@ export interface WorkholicSettings {
 	indicatorStyle: IndicatorStyle;
 	dimCompleted: boolean;
 	sortByStatus: boolean;
+	showTitles: boolean;
+	titleProperty: string;
+	showDay: boolean;
+	dateProperty: string;
+	showCategory: boolean;
+	categoryProperty: string;
+	sortByLabel: boolean;
 }
 
 export const DEFAULT_SETTINGS: WorkholicSettings = {
@@ -20,7 +27,27 @@ export const DEFAULT_SETTINGS: WorkholicSettings = {
 	indicatorStyle: 'icon',
 	dimCompleted: true,
 	sortByStatus: true,
+	showTitles: true,
+	titleProperty: 'title',
+	showDay: true,
+	dateProperty: 'date',
+	showCategory: true,
+	categoryProperty: 'category',
+	sortByLabel: true,
 };
+
+/** Text settings that name a frontmatter property, and must not be blank. */
+export const PROPERTY_SETTINGS = [
+	'property',
+	'titleProperty',
+	'dateProperty',
+	'categoryProperty',
+] as const;
+
+export type PropertySetting = (typeof PROPERTY_SETTINGS)[number];
+
+const validateProperty = (value: string): string | undefined =>
+	value.trim().length > 0 ? undefined : 'Enter a property name.';
 
 export class WorkholicSettingTab extends PluginSettingTab {
 	constructor(
@@ -40,10 +67,7 @@ export class WorkholicSettingTab extends PluginSettingTab {
 					type: 'text',
 					key: 'property',
 					placeholder: DEFAULT_SETTINGS.property,
-					validate: (value: string) =>
-						value.trim().length > 0
-							? undefined
-							: 'Enter a property name.',
+					validate: validateProperty,
 				},
 			},
 			{
@@ -76,6 +100,61 @@ export class WorkholicSettingTab extends PluginSettingTab {
 				desc: 'Group files in the file explorer by status, keeping your existing sort order within each group. Files without a status go last.',
 				control: { type: 'toggle', key: 'sortByStatus' },
 			},
+			{
+				name: 'Show titles',
+				desc: 'Show a frontmatter title in place of the file name in the file explorer. Hover a file to see its real name. Files without a title keep their file name.',
+				control: { type: 'toggle', key: 'showTitles' },
+			},
+			{
+				name: 'Title property',
+				desc: 'Frontmatter property that holds the display title.',
+				visible: () => this.plugin.settings.showTitles,
+				control: {
+					type: 'text',
+					key: 'titleProperty',
+					placeholder: DEFAULT_SETTINGS.titleProperty,
+					validate: validateProperty,
+				},
+			},
+			{
+				name: 'Show day',
+				desc: 'Show the day of the month from a date property ahead of the name, such as 11 for 2026-11-11.',
+				control: { type: 'toggle', key: 'showDay' },
+			},
+			{
+				name: 'Date property',
+				desc: 'Frontmatter property that holds the date.',
+				visible: () => this.plugin.settings.showDay,
+				control: {
+					type: 'text',
+					key: 'dateProperty',
+					placeholder: DEFAULT_SETTINGS.dateProperty,
+					validate: validateProperty,
+				},
+			},
+			{
+				name: 'Show category',
+				desc: 'Show a category property ahead of the name.',
+				control: { type: 'toggle', key: 'showCategory' },
+			},
+			{
+				name: 'Category property',
+				desc: 'Frontmatter property that holds the category.',
+				visible: () => this.plugin.settings.showCategory,
+				control: {
+					type: 'text',
+					key: 'categoryProperty',
+					placeholder: DEFAULT_SETTINGS.categoryProperty,
+					validate: validateProperty,
+				},
+			},
+			{
+				name: 'Sort by date and title',
+				desc: 'When the file explorer is sorted by name, order files by date when days are shown, then by their displayed title. Files without a date go after dated ones.',
+				visible: () =>
+					this.plugin.settings.showTitles || this.plugin.settings.showDay,
+				control: { type: 'toggle', key: 'sortByLabel' },
+			},
 		];
 	}
 
@@ -85,8 +164,8 @@ export class WorkholicSettingTab extends PluginSettingTab {
 	): Promise<void> {
 		await this.plugin.updateSetting(key, value);
 
-		// Toggling indicators changes which rows are visible, so re-evaluate
-		// the `visible` predicates.
+		// Toggling indicators or labels changes which rows are visible, so
+		// re-evaluate the `visible` predicates.
 		this.update();
 	}
 }
