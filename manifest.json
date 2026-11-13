@@ -3,7 +3,7 @@
 	"name": "Workholic",
 	"version": "0.2.1",
 	"minAppVersion": "1.13.0",
-	"description": "Show status, title, date, and category from frontmatter in the file explorer, and sort files by status, date, and title.",
+	"description": "Show status, title, date, and category from frontmatter in the file explorer, and sort files by status, date, category, and title.",
 	"author": "andromediano",
 	"isDesktopOnly": false
 }

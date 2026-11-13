@@ -149,10 +149,12 @@ export class WorkholicSettingTab extends PluginSettingTab {
 				},
 			},
 			{
-				name: 'Sort by date and title',
-				desc: 'When the file explorer is sorted by name, order files by date when days are shown, then by their displayed title. Files without a date go after dated ones.',
+				name: 'Sort by date, category, and title',
+				desc: 'When the file explorer is sorted by name, order files by date when days are shown, then by category when categories are shown, then by their displayed title. Files without a date or category go after the ones that have it.',
 				visible: () =>
-					this.plugin.settings.showTitles || this.plugin.settings.showDay,
+					this.plugin.settings.showTitles ||
+					this.plugin.settings.showDay ||
+					this.plugin.settings.showCategory,
 				control: { type: 'toggle', key: 'sortByLabel' },
 			},
 		];

@@ -42,8 +42,10 @@ export type StatusResolver = (path: string) => Status | null;
 
 /** What a file is ordered by when the explorer is sorted by name. */
 export interface NameSortKey {
-	/** Sortable date (`YYYY-MM-DD…`), or null to order by name alone. */
+	/** Sortable date (`YYYY-MM-DD…`), or null to skip the date. */
 	date: string | null;
+	/** The category the user sees, or null to skip the category. */
+	category: string | null;
 	/** The name the user sees: the title, or the file name. */
 	name: string;
 }
@@ -68,8 +70,8 @@ export interface SortOptions {
  * sort over file rows only. That gives this precedence:
  *
  * 1. Status (when enabled)
- * 2. Date, then displayed name (when enabled and the explorer is sorted by
- *    name), or else the user's own sort order
+ * 2. Date, then category, then displayed name (when enabled and the explorer
+ *    is sorted by name), or else the user's own sort order
  *
  * Folders keep their exact positions; only file rows are reordered.
  */
@@ -245,23 +247,44 @@ export function reorderByStatus(
 }
 
 /**
- * Compares name sort keys. Dated files come first, ordered by date; files with
- * no date follow, so they never interleave with the dated ones. Ties, and the
- * undated files, are ordered by displayed name. `direction` flips the date and
- * name order but keeps undated files last either way.
+ * Compares two optional keys. Present values come first, ordered by `compare`
+ * and flipped by `direction`; missing values follow in either direction, so
+ * they never interleave with the present ones. Returns 0 when both are
+ * missing or equal, leaving the decision to the next key.
+ */
+function compareOptional(
+	a: string | null,
+	b: string | null,
+	direction: 1 | -1,
+	compare: (a: string, b: string) => number,
+): number {
+	if (a !== null && b !== null) return direction * compare(a, b);
+	if (a !== null) return -1;
+	if (b !== null) return 1;
+	return 0;
+}
+
+const compareDates = (a: string, b: string): number =>
+	a === b ? 0 : a < b ? -1 : 1;
+
+const compareText = (a: string, b: string): number => collator.compare(a, b);
+
+/**
+ * Compares name sort keys by date, then category, then displayed name. At
+ * each of the first two keys, files that have a value come first and files
+ * without one follow. `direction` flips the order of every key but keeps
+ * files without a date or category after the ones that have it.
  */
 export function compareNameKeys(
 	a: NameSortKey,
 	b: NameSortKey,
 	direction: 1 | -1,
 ): number {
-	if (a.date !== null && b.date !== null && a.date !== b.date) {
-		return direction * (a.date < b.date ? -1 : 1);
-	}
-	if (a.date !== null && b.date === null) return -1;
-	if (a.date === null && b.date !== null) return 1;
-
-	return direction * collator.compare(a.name, b.name);
+	return (
+		compareOptional(a.date, b.date, direction, compareDates) ||
+		compareOptional(a.category, b.category, direction, compareText) ||
+		direction * compareText(a.name, b.name)
+	);
 }
 
 /**

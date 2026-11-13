@@ -183,7 +183,8 @@ export default class WorkholicPlugin extends Plugin {
 		});
 		this.sorter.configure({
 			byStatus: this.settings.sortByStatus,
-			byLabel: (showTitles || showDay) && this.settings.sortByLabel,
+			byLabel:
+				(showTitles || showDay || showCategory) && this.settings.sortByLabel,
 		});
 	}
 
@@ -199,14 +200,16 @@ export default class WorkholicPlugin extends Plugin {
 
 	/**
 	 * Name sorting follows what the row shows: the date only counts while the
-	 * day is displayed, and the title only while titles are displayed.
+	 * day is displayed, the category only while categories are displayed, and
+	 * the title only while titles are displayed.
 	 */
 	private nameSortKey(file: TFile): NameSortKey {
 		const label = this.labelIndex.get(file.path);
-		const { showTitles, showDay } = this.settings;
+		const { showTitles, showDay, showCategory } = this.settings;
 
 		return {
 			date: showDay ? (label?.date ?? null) : null,
+			category: showCategory ? (label?.category ?? null) : null,
 			name: (showTitles ? label?.title : null) ?? file.basename,
 		};
 	}

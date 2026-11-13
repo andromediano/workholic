@@ -1,6 +1,8 @@
 # Workholic
 
-Show status, title, date, and category from frontmatter in the file explorer, and sort files by status, date, and title.
+Show status, title, date, and category from frontmatter in the file explorer, and sort files by status, date, category, and title.
+
+![File explorer with status icons, and each note listed as day, category, and title, grouped by status](https://raw.githubusercontent.com/andromediano/workholic/main/docs/filetree.png)
 
 Add a `status` property to a note's frontmatter and Workholic marks it in the file explorer:
 
@@ -66,7 +68,7 @@ Each part appears only when the note has it, so a note with nothing but a title 
 
 Renaming from the file explorer (F2, or **Rename…** in the context menu) still edits the real file name, never the title.
 
-**Sort by date and title.** When the file explorer is sorted by name (A to Z or Z to A), files are ordered by what you see instead of their file name: by date first (while days are shown), then by title. Files without a date follow the dated ones in both directions. With **Sort by status** on, status still comes first. Sorting by modified or created time is unaffected.
+**Sort by date, category, and title.** When the file explorer is sorted by name (A to Z or Z to A), files are ordered by what you see instead of their file name: by date first (while days are shown), then by category (while categories are shown), then by title. Files without a date or category follow the ones that have it in both directions. With **Sort by status** on, status still comes first. Sorting by modified or created time is unaffected.
 
 ## Settings
 
@@ -83,7 +85,7 @@ Renaming from the file explorer (F2, or **Rename…** in the context menu) still
 | Date property | `date` | Frontmatter property to read. |
 | Show category | on | Shows the category ahead of the name. |
 | Category property | `category` | Frontmatter property to read. |
-| Sort by date and title | on | Applies only while the explorer is sorted by name. |
+| Sort by date, category, and title | on | Applies only while the explorer is sorted by name. |
 
 ## Customizing colors
 
