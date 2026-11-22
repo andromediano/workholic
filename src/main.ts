@@ -11,7 +11,12 @@ import { StatusDecorator } from './decoration/status-decorator';
 import { ExplorerSorter, type NameSortKey } from './sorting/explorer-patch';
 import { StatusPickerModal } from './ui/status-picker';
 import { applyStatus } from './status/write-status';
-import { LabelIndex, type LabelProperties } from './titles/label-index';
+import {
+	LabelIndex,
+	type Label,
+	type LabelProperties,
+} from './titles/label-index';
+import { SeriesIndex, type SeriesProperties } from './series/series-index';
 import { ExplorerLabels } from './titles/explorer-labels';
 
 const INDICATOR_STYLES = new Set(['icon', 'bar', 'badge', 'bar-icon']);
@@ -20,6 +25,7 @@ const BOOLEAN_SETTINGS = [
 	'showIndicators',
 	'dimCompleted',
 	'sortByStatus',
+	'sortBySeries',
 	'showTitles',
 	'showDay',
 	'showCategory',
@@ -39,6 +45,7 @@ export default class WorkholicPlugin extends Plugin {
 
 	private index!: StatusIndex;
 	private labelIndex!: LabelIndex;
+	private seriesIndex!: SeriesIndex;
 	private decorator!: StatusDecorator;
 	private labels!: ExplorerLabels;
 	private sorter!: ExplorerSorter;
@@ -52,16 +59,20 @@ export default class WorkholicPlugin extends Plugin {
 		this.labelIndex = this.addChild(
 			new LabelIndex(this.app, this.labelProperties()),
 		);
+		this.seriesIndex = this.addChild(
+			new SeriesIndex(this.app, this.seriesProperties()),
+		);
 		this.decorator = this.addChild(
 			new StatusDecorator(this.app, (path) => this.index.get(path)),
 		);
 		this.labels = this.addChild(
-			new ExplorerLabels(this.app, (path) => this.labelIndex.get(path)),
+			new ExplorerLabels(this.app, (path) => this.displayLabel(path)),
 		);
 		this.sorter = this.addChild(
 			new ExplorerSorter(
 				this.app,
 				(path) => this.index.get(path),
+				(path) => this.seriesIndex.get(path),
 				(file) => this.nameSortKey(file),
 			),
 		);
@@ -71,6 +82,7 @@ export default class WorkholicPlugin extends Plugin {
 		const apply = debounce(() => this.apply(), 100, true);
 		this.index.onChange(apply);
 		this.labelIndex.onChange(apply);
+		this.seriesIndex.onChange(apply);
 
 		this.addSettingTab(new WorkholicSettingTab(this.app, this));
 		this.registerStatusPicker();
@@ -81,6 +93,7 @@ export default class WorkholicPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.index.reset();
 			this.labelIndex.reset();
+			this.seriesIndex.reset();
 			this.configureExplorer();
 		});
 	}
@@ -168,6 +181,7 @@ export default class WorkholicPlugin extends Plugin {
 		// Rebuild and re-apply on their own if a property actually changed.
 		this.index.setProperty(this.propertyName('property'));
 		this.labelIndex.setProperties(this.labelProperties());
+		this.seriesIndex.setProperties(this.seriesProperties());
 		this.configureExplorer();
 		this.apply();
 	}
@@ -183,6 +197,7 @@ export default class WorkholicPlugin extends Plugin {
 		});
 		this.sorter.configure({
 			byStatus: this.settings.sortByStatus,
+			bySeries: this.settings.sortBySeries,
 			byLabel:
 				(showTitles || showDay || showCategory) && this.settings.sortByLabel,
 		});
@@ -199,18 +214,51 @@ export default class WorkholicPlugin extends Plugin {
 	}
 
 	/**
-	 * Name sorting follows what the row shows: the date only counts while the
-	 * day is displayed, the category only while categories are displayed, and
-	 * the title only while titles are displayed.
+	 * What a row shows. A note in a series shows the series name where the
+	 * category would go, since the series says more about where it belongs.
+	 * Only a note with a status shows its day: the day dates a piece of work,
+	 * so a note outside the workflow shows none. Its date still counts for
+	 * sorting.
+	 */
+	private displayLabel(path: string): Label | null {
+		const label = this.labelIndex.get(path);
+		const series = this.seriesIndex.get(path);
+		const hasStatus = this.index.get(path) !== null;
+		if (!series && hasStatus) return label;
+
+		const title = label?.title ?? null;
+		const day = hasStatus ? (label?.day ?? null) : null;
+		const category = series?.name ?? label?.category ?? null;
+		if (title === null && day === null && category === null) return null;
+
+		return { title, date: label?.date ?? null, day, category };
+	}
+
+	/**
+	 * Name sorting follows the label settings: the date counts while days are
+	 * turned on (even on notes without a status, which hide their day), the
+	 * category while categories are displayed, and the title while titles are
+	 * displayed. A note in a series is not
+	 * ordered by category at all: its row shows the series instead, and
+	 * series sorting places it.
 	 */
 	private nameSortKey(file: TFile): NameSortKey {
 		const label = this.labelIndex.get(file.path);
+		const inSeries = this.seriesIndex.get(file.path) !== null;
 		const { showTitles, showDay, showCategory } = this.settings;
 
 		return {
 			date: showDay ? (label?.date ?? null) : null,
-			category: showCategory ? (label?.category ?? null) : null,
+			category:
+				showCategory && !inSeries ? (label?.category ?? null) : null,
 			name: (showTitles ? label?.title : null) ?? file.basename,
+		};
+	}
+
+	private seriesProperties(): SeriesProperties {
+		return {
+			series: this.propertyName('seriesProperty'),
+			order: this.propertyName('seriesOrderProperty'),
 		};
 	}
 

@@ -12,6 +12,9 @@ export interface WorkholicSettings {
 	indicatorStyle: IndicatorStyle;
 	dimCompleted: boolean;
 	sortByStatus: boolean;
+	sortBySeries: boolean;
+	seriesProperty: string;
+	seriesOrderProperty: string;
 	showTitles: boolean;
 	titleProperty: string;
 	showDay: boolean;
@@ -27,6 +30,9 @@ export const DEFAULT_SETTINGS: WorkholicSettings = {
 	indicatorStyle: 'icon',
 	dimCompleted: true,
 	sortByStatus: true,
+	sortBySeries: true,
+	seriesProperty: 'series',
+	seriesOrderProperty: 'seriesOrder',
 	showTitles: true,
 	titleProperty: 'title',
 	showDay: true,
@@ -39,6 +45,8 @@ export const DEFAULT_SETTINGS: WorkholicSettings = {
 /** Text settings that name a frontmatter property, and must not be blank. */
 export const PROPERTY_SETTINGS = [
 	'property',
+	'seriesProperty',
+	'seriesOrderProperty',
 	'titleProperty',
 	'dateProperty',
 	'categoryProperty',
@@ -101,6 +109,37 @@ export class WorkholicSettingTab extends PluginSettingTab {
 				control: { type: 'toggle', key: 'sortByStatus' },
 			},
 			{
+				name: 'Sort by series',
+				desc: 'Group files in the file explorer by series, right after status. Series are in descending order, and files in the same series are in ascending order of their series order. Files without a series go after the ones that have it.',
+				control: { type: 'toggle', key: 'sortBySeries' },
+			},
+			{
+				name: 'Series property',
+				desc: 'Frontmatter property that holds the series name.',
+				visible: () =>
+					this.plugin.settings.sortBySeries ||
+					this.plugin.settings.showCategory,
+				control: {
+					type: 'text',
+					key: 'seriesProperty',
+					placeholder: DEFAULT_SETTINGS.seriesProperty,
+					validate: validateProperty,
+				},
+			},
+			{
+				name: 'Series order property',
+				desc: 'Frontmatter property that holds the position within the series, as a number.',
+				visible: () =>
+					this.plugin.settings.sortBySeries ||
+					this.plugin.settings.showCategory,
+				control: {
+					type: 'text',
+					key: 'seriesOrderProperty',
+					placeholder: DEFAULT_SETTINGS.seriesOrderProperty,
+					validate: validateProperty,
+				},
+			},
+			{
 				name: 'Show titles',
 				desc: 'Show a frontmatter title in place of the file name in the file explorer. Hover a file to see its real name. Files without a title keep their file name.',
 				control: { type: 'toggle', key: 'showTitles' },
@@ -118,7 +157,7 @@ export class WorkholicSettingTab extends PluginSettingTab {
 			},
 			{
 				name: 'Show day',
-				desc: 'Show the day of the month from a date property ahead of the name, such as 11 for 2026-11-11.',
+				desc: 'Show the day of the month from a date property ahead of the name, such as 11 for 2026-11-11. Only notes with a status show the day.',
 				control: { type: 'toggle', key: 'showDay' },
 			},
 			{
@@ -134,7 +173,7 @@ export class WorkholicSettingTab extends PluginSettingTab {
 			},
 			{
 				name: 'Show category',
-				desc: 'Show a category property ahead of the name.',
+				desc: 'Show a category property ahead of the name. Notes in a series show the series name instead.',
 				control: { type: 'toggle', key: 'showCategory' },
 			},
 			{
@@ -150,7 +189,7 @@ export class WorkholicSettingTab extends PluginSettingTab {
 			},
 			{
 				name: 'Sort by date, category, and title',
-				desc: 'When the file explorer is sorted by name, order files by date when days are shown, then by category when categories are shown, then by their displayed title. Files without a date or category go after the ones that have it.',
+				desc: 'When the file explorer is sorted by name, order files by date when Show day is on, then by category when categories are shown, then by their displayed title. Files without a date or category go after the ones that have it. Notes in a series are not ordered by category.',
 				visible: () =>
 					this.plugin.settings.showTitles ||
 					this.plugin.settings.showDay ||
@@ -166,8 +205,8 @@ export class WorkholicSettingTab extends PluginSettingTab {
 	): Promise<void> {
 		await this.plugin.updateSetting(key, value);
 
-		// Toggling indicators or labels changes which rows are visible, so
-		// re-evaluate the `visible` predicates.
+		// Toggling indicators, series sorting, or labels changes which rows
+		// are visible, so re-evaluate the `visible` predicates.
 		this.update();
 	}
 }

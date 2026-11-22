@@ -1,6 +1,7 @@
 import { Component, TFile, type App, type TFolder } from 'obsidian';
 import { around } from 'monkey-around';
 import { rankOf, type Status } from '../status/types';
+import type { Series } from '../series/series-index';
 import { reorderByRank, reorderPinned } from './reorder';
 
 const FILE_EXPLORER_VIEW_TYPE = 'file-explorer';
@@ -40,6 +41,8 @@ interface FileExplorerViewInternals {
 
 export type StatusResolver = (path: string) => Status | null;
 
+export type SeriesResolver = (path: string) => Series | null;
+
 /** What a file is ordered by when the explorer is sorted by name. */
 export interface NameSortKey {
 	/** Sortable date (`YYYY-MM-DD…`), or null to skip the date. */
@@ -55,6 +58,8 @@ export type NameSortKeyResolver = (file: TFile) => NameSortKey;
 export interface SortOptions {
 	/** Group files by status, ahead of every other key. */
 	byStatus: boolean;
+	/** Group files by series, right after status. */
+	bySeries: boolean;
 	/**
 	 * When the explorer is sorted by name, order files by `NameSortKey`
 	 * instead of their file name.
@@ -70,20 +75,26 @@ export interface SortOptions {
  * sort over file rows only. That gives this precedence:
  *
  * 1. Status (when enabled)
- * 2. Date, then category, then displayed name (when enabled and the explorer
+ * 2. Series descending, then the order within it ascending (when enabled)
+ * 3. Date, then category, then displayed name (when enabled and the explorer
  *    is sorted by name), or else the user's own sort order
  *
  * Folders keep their exact positions; only file rows are reordered.
  */
 export class ExplorerSorter extends Component {
 	private uninstall: (() => void) | null = null;
-	private options: SortOptions = { byStatus: false, byLabel: false };
+	private options: SortOptions = {
+		byStatus: false,
+		bySeries: false,
+		byLabel: false,
+	};
 	private retryQueued = false;
 	private unavailable = false;
 
 	constructor(
 		private readonly app: App,
 		private readonly resolveStatus: StatusResolver,
+		private readonly resolveSeries: SeriesResolver,
 		private readonly resolveNameKey: NameSortKeyResolver,
 	) {
 		super();
@@ -106,6 +117,7 @@ export class ExplorerSorter extends Component {
 	configure(options: SortOptions): void {
 		const changed =
 			options.byStatus !== this.options.byStatus ||
+			options.bySeries !== this.options.bySeries ||
 			options.byLabel !== this.options.byLabel;
 		this.options = { ...options };
 
@@ -126,7 +138,8 @@ export class ExplorerSorter extends Component {
 
 	private wanted(): boolean {
 		return (
-			!this.unavailable && (this.options.byStatus || this.options.byLabel)
+			!this.unavailable &&
+			(this.options.byStatus || this.options.bySeries || this.options.byLabel)
 		);
 	}
 
@@ -153,7 +166,7 @@ export class ExplorerSorter extends Component {
 
 		if (typeof view.getSortedFolderItems !== 'function') {
 			console.error(
-				'Workholic: this Obsidian build does not expose the file explorer sort hook; sorting by status and label is unavailable.',
+				'Workholic: this Obsidian build does not expose the file explorer sort hook; sorting by status, series, and label is unavailable.',
 			);
 			this.unavailable = true;
 			return;
@@ -200,6 +213,10 @@ export class ExplorerSorter extends Component {
 			result = reorderByNameKey(result, this.resolveNameKey, direction);
 		}
 
+		if (this.options.bySeries) {
+			result = reorderBySeries(result, this.resolveSeries);
+		}
+
 		if (this.options.byStatus) {
 			result = reorderByStatus(result, this.resolveStatus);
 		}
@@ -244,6 +261,46 @@ export function reorderByStatus(
 		if (!(file instanceof TFile)) return null;
 		return rankOf(resolve(file.path));
 	});
+}
+
+/**
+ * Compares series keys: files in a series come first, series names in
+ * descending order, and within a series the order value ascending. Files
+ * without an order follow the ordered ones in their series.
+ */
+export function compareSeries(a: Series | null, b: Series | null): number {
+	if (a === null || b === null) {
+		return a === b ? 0 : a === null ? 1 : -1;
+	}
+
+	const byName = -compareText(a.name, b.name);
+	if (byName !== 0) return byName;
+
+	if (a.order === null || b.order === null) {
+		return a.order === b.order ? 0 : a.order === null ? 1 : -1;
+	}
+
+	return a.order - b.order;
+}
+
+/**
+ * Rewrites file rows in series order, leaving folder rows in place. Every
+ * file takes part, so files without a series move after the ones that have
+ * one rather than staying put.
+ */
+export function reorderBySeries(
+	items: ExplorerItem[],
+	resolve: SeriesResolver,
+): ExplorerItem[] {
+	return reorderPinned(
+		items,
+		(item) => {
+			const file = item?.file;
+			if (!(file instanceof TFile)) return null;
+			return { series: resolve(file.path) };
+		},
+		(a, b) => compareSeries(a.series, b.series),
+	);
 }
 
 /**

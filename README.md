@@ -1,6 +1,6 @@
 # Workholic
 
-Show status, title, date, and category from frontmatter in the file explorer, and sort files by status, date, category, and title.
+Show status, title, date, category, and series from frontmatter in the file explorer, and sort files by status, series, date, category, and title.
 
 ![File explorer with status icons, and each note listed as day, category, and title, grouped by status](https://raw.githubusercontent.com/andromediano/workholic/main/docs/filetree.png)
 
@@ -48,10 +48,22 @@ Colors come from Obsidian's theme variables, so they follow your theme in both l
 
 **Sort by status.** Files are grouped by status in the file explorer. Your existing sort order (name, modified time, …) is preserved *within* each status group, and files without a status go last. Folders keep their positions.
 
+**Sort by series.** Files that belong to a series are grouped right after status:
+
+```yaml
+---
+series: Weekly review
+seriesOrder: 3
+---
+```
+
+Series are listed in descending order of name, and notes in the same series in ascending order of `seriesOrder`, so the first entry comes first. Notes without a `seriesOrder` follow the numbered ones in their series, and notes without a series go after every series. Like status, this applies whatever the file explorer is sorted by; your own sort order decides the rest. A series may be a link such as `[[Weekly review]]`. In the file explorer, a note in a series shows the series name where its category would be.
+
 **Labels from frontmatter.** Files are listed in the file explorer as `day category title`, built from the note's properties:
 
 ```yaml
 ---
+status: IN_PROGRESS
 title: Quarterly planning
 date: 2026-11-11
 category: Planning
@@ -61,14 +73,14 @@ category: Planning
 shows as **`11`** `Planning` **Quarterly planning**.
 
 - **Title** replaces the file name. Hover the row to see the real file name.
-- **Day** is the day of the month from `date`, always two digits (`05`, `11`). Date and datetime values both work.
-- **Category** is shown as a small badge. A list of categories is joined with commas, and links such as `[[Planning]]` show their name.
+- **Day** is the day of the month from `date`, always two digits (`05`, `11`). Date and datetime values both work. Only notes with a status show the day, though every note's date still counts for sorting.
+- **Category** is shown as a small badge. A list of categories is joined with commas, and links such as `[[Planning]]` show their name. A note with a `series` shows the series name here instead.
 
 Each part appears only when the note has it, so a note with nothing but a title shows just the title, and a note with none of them shows its file name as before. Each part can be turned off in settings.
 
 Renaming from the file explorer (F2, or **Rename…** in the context menu) still edits the real file name, never the title.
 
-**Sort by date, category, and title.** When the file explorer is sorted by name (A to Z or Z to A), files are ordered by what you see instead of their file name: by date first (while days are shown), then by category (while categories are shown), then by title. Files without a date or category follow the ones that have it in both directions. With **Sort by status** on, status still comes first. Sorting by modified or created time is unaffected.
+**Sort by date, category, and title.** When the file explorer is sorted by name (A to Z or Z to A), files are ordered by what you see instead of their file name: by date first (while **Show day** is on, even on notes that do not show their day), then by category (while categories are shown), then by title. Files without a date or category follow the ones that have it in both directions. Notes in a series are not ordered by category. With **Sort by status** or **Sort by series** on, status and then series still come first. Sorting by modified or created time is unaffected.
 
 ## Settings
 
@@ -79,11 +91,14 @@ Renaming from the file explorer (F2, or **Rename…** in the context menu) still
 | Indicator style | Status icon | See the presets above. |
 | Dim completed files | on | Fades `DONE` files. |
 | Sort by status | on | See the caveat below. |
+| Sort by series | on | Groups files by series, right after status. |
+| Series property | `series` | Frontmatter property to read. |
+| Series order property | `seriesOrder` | Frontmatter property to read. Numbers only. |
 | Show titles | on | Shows the title property in place of the file name. |
 | Title property | `title` | Frontmatter property to read. |
-| Show day | on | Shows the day of the month ahead of the name. |
+| Show day | on | Shows the day of the month ahead of the name on notes with a status. |
 | Date property | `date` | Frontmatter property to read. |
-| Show category | on | Shows the category ahead of the name. |
+| Show category | on | Shows the category ahead of the name, or the series for notes in one. |
 | Category property | `category` | Frontmatter property to read. |
 | Sort by date, category, and title | on | Applies only while the explorer is sorted by name. |
 
@@ -120,7 +135,7 @@ To swap an icon, override `--workholic-icon` on the matching status:
 
 ## Caveats
 
-**Sorting is per folder.** The file explorer sorts each folder independently, so statuses group within a folder rather than across the whole vault. For a vault-wide status board, use a Base with `group by status`.
+**Sorting is per folder.** The file explorer sorts each folder independently, so statuses and series group within a folder rather than across the whole vault. For a vault-wide status board, use a Base with `group by status`.
 
 **Sorting and labels rely on an internal API.** Obsidian does not expose the file explorer to plugins, so these features hook internal methods. They are feature-detected and fail safe: if a future Obsidian release changes those methods, sorting reverts to the default order, files show their file names again, and the status indicators keep working. Indicators themselves use only public API and CSS.
 
