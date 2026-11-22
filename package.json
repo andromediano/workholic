@@ -1,6 +1,6 @@
 {
 	"name": "workholic",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"description": "Show status, title, date, category, and series from frontmatter in the file explorer, and sort files by status, series, date, category, and title.",
 	"main": "main.js",
 	"type": "module",
